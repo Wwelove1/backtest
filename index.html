@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backtest Results</title>
+  <!-- Tabulator CSS -->
+  <link href="css/tabulator.min.css" rel="stylesheet">
+  <style>
+    .chart-container {
+      width: 100%;
+      height: 400px;
+      margin-bottom: 20px;
+    }
+    .table-container {
+      width: 100%;
+      height: 300px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Backtest Results</h1>
+
+  <!-- Equity Curve Chart -->
+  <h2>Equity Curve</h2>
+  <div id="chartContainer" class="chart-container"></div>
+
+  <!-- Trades Table -->
+  <h2>Trades</h2>
+  <div id="tableContainer" class="table-container"></div>
+
+  <!-- Summary -->
+  <h2>Summary</h2>
+  <p>Total Profit: <span id="totalProfit">$100</span></p>
+  <p>Total Trades: <span id="totalTrades">2</span></p>
+
+  <!-- Lightweight Charts JS -->
+  <script src="js/lightweight-charts.standalone.production.js"></script>
+  <!-- Tabulator JS -->
+  <script src="js/tabulator.min.js"></script>
+  <script>
+    // JSON data for backtest results (dummy data)
+    const backtestResults = {
+      equity_curve: [
+        { time: 1633072800, value: 10000 },
+        { time: 1633159200, value: 10100 },
+        { time: 1633245600, value: 10250 },
+        { time: 1633332000, value: 10300 },
+        { time: 1633418400, value: 10400 },
+        { time: 1633504800, value: 10500 },
+        { time: 1633591200, value: 10600 },
+        { time: 1633677600, value: 10700 },
+        { time: 1633764000, value: 10800 },
+        { time: 1633850400, value: 10900 }
+      ],
+      trades: [
+        {
+          entry_time: 1633072800,
+          exit_time: 1633159200,
+          entry_price: 50,
+          exit_price: 55,
+          quantity: 10,
+          PNL: 50,
+          PNL_percentage: 10
+        },
+        {
+          entry_time: 1633159200,
+          exit_time: 1633245600,
+          entry_price: 55,
+          exit_price: 60,
+          quantity: 10,
+          PNL: 50,
+          PNL_percentage: 9.09
+        },
+        {
+          entry_time: 1633332000,
+          exit_time: 1633418400,
+          entry_price: 60,
+          exit_price: 65,
+          quantity: 10,
+          PNL: 50,
+          PNL_percentage: 8.33
+        },
+        {
+          entry_time: 1633504800,
+          exit_time: 1633591200,
+          entry_price: 65,
+          exit_price: 70,
+          quantity: 10,
+          PNL: 50,
+          PNL_percentage: 7.69
+        }
+      ],
+      total_profit: 200,
+      total_trades: 4
+    };
+
+    // Render the equity curve chart
+    function renderChart(data) {
+      const chart = LightweightCharts.createChart(document.getElementById('chartContainer'), {
+        width: 800,
+        height: 400,
+        layout: {
+          backgroundColor: '#ffffff',
+          textColor: '#333'
+        },
+        grid: {
+          vertLines: { color: '#eee' },
+          horzLines: { color: '#eee' }
+        }
+      });
+
+      const lineSeries = chart.addLineSeries();
+      lineSeries.setData(data.map(point => ({
+        time: new Date(point.time * 1000).toISOString().split('T')[0],
+        value: point.value
+      })));
+
+      chart.timeScale().fitContent();
+
+      return { chart, lineSeries };
+    }
+
+    // Render the trades table
+    function renderTable(trades) {
+      const table = new Tabulator('#tableContainer', {
+        data: trades,
+        layout: 'fitColumns',
+        columns: [
+          { title: 'Entry Time', field: 'entry_time', formatter: 'datetime', formatterParams: { outputFormat: 'YYYY-MM-DD HH:mm:ss' } },
+          { title: 'Exit Time', field: 'exit_time', formatter: 'datetime', formatterParams: { outputFormat: 'YYYY-MM-DD HH:mm:ss' } },
+          { title: 'Entry Price', field: 'entry_price' },
+          { title: 'Exit Price', field: 'exit_price' },
+          { title: 'Quantity', field: 'quantity' },
+          { title: 'PNL', field: 'PNL', formatter: 'money', formatterParams: { symbol: '$' } },
+          { title: 'PNL (%)', field: 'PNL_percentage', formatter: 'progress', formatterParams: { min: 0, max: 100 } }
+        ]
+      });
+
+      return table;
+    }
+
+    // Highlight trade on chart when row is clicked
+    function connectChartAndTable(chart, lineSeries, table) {
+      let markers = [];
+
+      table.on('rowClick', (e, row) => {
+        const trade = row.getData();
+
+        // Clear existing markers
+        markers.forEach(marker => lineSeries.removeMarker(marker.id));
+        markers = [];
+
+        // Add entry marker
+        const entryMarker = lineSeries.createPriceLine({
+          price: trade.entry_price,
+          color: 'green',
+          lineWidth: 2,
+          lineStyle: 0,
+          axisLabelVisible: true,
+          title: 'Entry'
+        });
+
+        // Add exit marker
+        const exitMarker = lineSeries.createPriceLine({
+          price: trade.exit_price,
+          color: 'red',
+          lineWidth: 2,
+          lineStyle: 0,
+          axisLabelVisible: true,
+          title: 'Exit'
+        });
+
+        markers.push(entryMarker, exitMarker);
+      });
+    }
+
+    // Initialize the app
+    document.addEventListener('DOMContentLoaded', () => {
+      // Render chart
+      const { chart, lineSeries } = renderChart(backtestResults.equity_curve);
+
+      // Render table
+      const table = renderTable(backtestResults.trades);
+
+      // Connect chart and table
+      connectChartAndTable(chart, lineSeries, table);
+
+      // Update summary
+      document.getElementById('totalProfit').textContent = `$${backtestResults.total_profit}`;
+      document.getElementById('totalTrades').textContent = backtestResults.total_trades;
+    });
+  </script>
+</body>
+</html>
